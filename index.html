@@ -1,0 +1,442 @@
+<antArtifact identifier="local-austin-map" type="text/html" title="Austin Tech & Bier Map (Lokale Version)" >
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Austin Tech & Bier Map</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .header {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .title {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .subtitle {
+            margin: 5px 0 0;
+            color: #666;
+            font-size: 12px;
+        }
+        .poi-info {
+            max-width: 300px;
+        }
+        .poi-info h3 {
+            margin: 0 0 5px;
+            color: #2c3e50;
+        }
+        .poi-info p {
+            margin: 0 0 10px;
+            font-size: 14px;
+            color: #34495e;
+        }
+        .poi-info .tag {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .poi-info .tech-tag {
+            background-color: #2ecc71;
+        }
+        .poi-info .beer-tag {
+            background-color: #f39c12;
+        }
+        .poi-info .view-tag {
+            background-color: #9b59b6;
+        }
+        .filter-buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            z-index: 1000;
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .filter-button {
+            margin: 5px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .filter-button.active {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        .filter-button.inactive {
+            opacity: 0.6;
+        }
+        .all-button {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+        }
+        .tech-button {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .beer-button {
+            background-color: #f39c12;
+            color: white;
+        }
+        .view-button {
+            background-color: #9b59b6;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">Austin Tech & Bier Map</h1>
+        <p class="subtitle">Die besten Spots für einen 39-jährigen IT-Profi</p>
+    </div>
+    <div id="map"></div>
+    <div class="filter-buttons">
+        <button class="filter-button all-button active" data-filter="all">Alle POIs</button>
+        <button class="filter-button tech-button active" data-filter="tech">Tech</button>
+        <button class="filter-button beer-button active" data-filter="beer">Bier</button>
+        <button class="filter-button view-button active" data-filter="view">Aussicht</button>
+    </div>
+
+    <script>
+        // POI-Daten
+        const pois = [
+            {
+                name: "Mozart's Coffee Roasters",
+                lat: 30.2953,
+                lng: -97.7842,
+                description: "Entspannter Kaffee mit einer der besten Aussichten auf den Lake Austin. Hervorragende WLAN-Verbindung für Remote-Arbeit.",
+                tags: ["view", "tech"],
+                icon: "🏞️"
+            },
+            {
+                name: "Jester King Brewery",
+                lat: 30.2325,
+                lng: -97.9917,
+                description: "Berühmte Craft-Brauerei mit Fokus auf Wildhefen und spontane Fermentation. Die ländliche Lage bietet schöne Aussicht auf das Hill Country.",
+                tags: ["beer", "view"],
+                icon: "🍺"
+            },
+            {
+                name: "Austin Beerworks",
+                lat: 30.3805,
+                lng: -97.7194,
+                description: "Eine der bekanntesten Brauereien in Austin mit exzellentem Stout und IPA Angebot. Beliebter Treffpunkt für IT-Profis nach der Arbeit.",
+                tags: ["beer", "tech"],
+                icon: "🍺"
+            },
+            {
+                name: "Capital Factory",
+                lat: 30.2688,
+                lng: -97.7407,
+                description: "Das Herz des Tech-Ökosystems in Austin. Co-Working-Space, Startup-Accelerator und regelmäßige Tech-Events. Perfekt für Networking.",
+                tags: ["tech"],
+                icon: "💻"
+            },
+            {
+                name: "Mount Bonnell",
+                lat: 30.3210,
+                lng: -97.7736,
+                description: "Der höchste Punkt in Austin mit atemberaubender Aussicht auf die Stadt und den Colorado River. Ideal für einen Sonnenuntergang mit mitgebrachtem Craft-Bier.",
+                tags: ["view"],
+                icon: "🏞️"
+            },
+            {
+                name: "The Domain",
+                lat: 30.4015,
+                lng: -97.7250,
+                description: "Tech-Hub mit Büros von Amazon, Facebook, IBM und mehr. Zahlreiche Restaurants und Bars, darunter 'Yard House' mit über 100 Bieren vom Fass.",
+                tags: ["tech", "beer"],
+                icon: "💻"
+            },
+            {
+                name: "ABGB (Austin Beer Garden Brewing)",
+                lat: 30.2450,
+                lng: -97.7698,
+                description: "Preisgekrönte Brauerei mit entspanntem Biergarten. Bekannt für exzellente Pilsner und Pizza. Regelmäßige Live-Musik.",
+                tags: ["beer"],
+                icon: "🍺"
+            },
+            {
+                name: "Dell Technologies Campus",
+                lat: 30.4960,
+                lng: -97.7248,
+                description: "Hauptsitz eines der größten IT-Unternehmen. Interessant für Tech-Enthusiasten und Networking-Möglichkeiten.",
+                tags: ["tech"],
+                icon: "💻"
+            },
+            {
+                name: "Zilker Park",
+                lat: 30.2669,
+                lng: -97.7729,
+                description: "Großer Stadtpark mit herrlicher Aussicht auf die Skyline von Austin. Bietet gute Laufstrecken und ist Austragungsort des ACL Music Festivals.",
+                tags: ["view"],
+                icon: "🏞️"
+            },
+            {
+                name: "Pinthouse Pizza",
+                lat: 30.3352,
+                lng: -97.7601,
+                description: "Kombiniert handwerklich gebrautes Bier mit köstlicher Pizza. Bekannt für ihre 'Electric Jellyfish' IPA. Beliebter Ort unter Tech-Profis.",
+                tags: ["beer", "tech"],
+                icon: "🍺"
+            }
+        ];
+
+        // Warte, bis das Dokument geladen ist
+        document.addEventListener('DOMContentLoaded', function() {
+            // Leaflet-Skript dynamisch laden
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js', function() {
+                initMap();
+            });
+
+            // Leaflet CSS dynamisch laden
+            loadCSS('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css');
+        });
+
+        // Funktion zum dynamischen Laden von JavaScript
+        function loadScript(url, callback) {
+            var script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = url;
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+
+        // Funktion zum dynamischen Laden von CSS
+        function loadCSS(url) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = url;
+            document.head.appendChild(link);
+        }
+
+        // Karte initialisieren
+        function initMap() {
+            // Karte initialisieren
+            const map = L.map('map').setView([30.2672, -97.7431], 13);
+            
+            // OpenStreetMap Tiles hinzufügen
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Marker-Gruppen erstellen
+            const allMarkers = L.layerGroup();
+            const techMarkers = L.layerGroup();
+            const beerMarkers = L.layerGroup();
+            const viewMarkers = L.layerGroup();
+            
+            // Aktive Filter
+            const activeFilters = {
+                tech: true,
+                beer: true,
+                view: true
+            };
+
+            // POIs zur Karte hinzufügen
+            pois.forEach(poi => {
+                const marker = L.marker([poi.lat, poi.lng]).bindPopup(createPopupContent(poi));
+                
+                allMarkers.addLayer(marker);
+                
+                if (poi.tags.includes("tech")) {
+                    techMarkers.addLayer(marker);
+                }
+                if (poi.tags.includes("beer")) {
+                    beerMarkers.addLayer(marker);
+                }
+                if (poi.tags.includes("view")) {
+                    viewMarkers.addLayer(marker);
+                }
+            });
+            
+            // Alle Marker zur Karte hinzufügen
+            allMarkers.addTo(map);
+            
+            // Popup-Inhalt erstellen
+            function createPopupContent(poi) {
+                let tagHtml = '';
+                
+                if (poi.tags.includes("tech")) {
+                    tagHtml += '<span class="tag tech-tag">Tech</span>';
+                }
+                if (poi.tags.includes("beer")) {
+                    tagHtml += '<span class="tag beer-tag">Bier</span>';
+                }
+                if (poi.tags.includes("view")) {
+                    tagHtml += '<span class="tag view-tag">Aussicht</span>';
+                }
+                
+                return `
+                    <div class="poi-info">
+                        <h3>${poi.icon} ${poi.name}</h3>
+                        <p>${poi.description}</p>
+                        <div>${tagHtml}</div>
+                    </div>
+                `;
+            }
+            
+            // Filter-Buttons Funktionalität
+            document.querySelectorAll('.filter-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const filter = this.getAttribute('data-filter');
+                    
+                    if (filter === 'all') {
+                        // Alle Filter umschalten
+                        const allActive = !document.querySelector('.all-button').classList.contains('active');
+                        
+                        document.querySelectorAll('.filter-button').forEach(btn => {
+                            if (allActive) {
+                                btn.classList.add('active');
+                                btn.classList.remove('inactive');
+                            } else {
+                                btn.classList.remove('active');
+                                btn.classList.add('inactive');
+                            }
+                        });
+                        
+                        activeFilters.tech = allActive;
+                        activeFilters.beer = allActive;
+                        activeFilters.view = allActive;
+                    } else {
+                        // Einzelnen Filter umschalten
+                        this.classList.toggle('active');
+                        this.classList.toggle('inactive');
+                        
+                        activeFilters[filter] = this.classList.contains('active');
+                        
+                        // All-Button anpassen
+                        const allActive = activeFilters.tech && activeFilters.beer && activeFilters.view;
+                        const allButton = document.querySelector('.all-button');
+                        
+                        if (allActive) {
+                            allButton.classList.add('active');
+                            allButton.classList.remove('inactive');
+                        } else {
+                            allButton.classList.remove('active');
+                            allButton.classList.add('inactive');
+                        }
+                    }
+                    
+                    updateMap();
+                });
+            });
+            
+            // Karte aktualisieren basierend auf aktiven Filtern
+            function updateMap() {
+                map.removeLayer(allMarkers);
+                
+                allMarkers.clearLayers();
+                
+                if (activeFilters.tech) {
+                    techMarkers.eachLayer(layer => {
+                        allMarkers.addLayer(layer);
+                    });
+                }
+                
+                if (activeFilters.beer) {
+                    beerMarkers.eachLayer(layer => {
+                        allMarkers.addLayer(layer);
+                    });
+                }
+                
+                if (activeFilters.view) {
+                    viewMarkers.eachLayer(layer => {
+                        allMarkers.addLayer(layer);
+                    });
+                }
+                
+                allMarkers.addTo(map);
+            }
+            
+            // Füge einen Marker für deine aktuelle Position hinzu
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    
+                    const userMarker = L.marker([userLat, userLng], {
+                        icon: L.divIcon({
+                            html: '<div style="background-color: #3498db; width: 12px; height: 12px; border-radius: 50%; border: 3px solid white;"></div>',
+                            className: 'user-marker',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9]
+                        })
+                    }).addTo(map);
+                    
+                    userMarker.bindPopup("Dein Standort").openPopup();
+                    
+                    // Prüfen, ob der Standort in der Nähe von Austin ist
+                    const austinLat = 30.2672;
+                    const austinLng = -97.7431;
+                    const distance = getDistance(userLat, userLng, austinLat, austinLng);
+                    
+                    if (distance > 100) { // Wenn mehr als 100 km entfernt
+                        // Nach Austin zoomen, aber den Benutzerstandort behalten
+                        map.setView([austinLat, austinLng], 12);
+                        alert("Du bist mehr als 100 km von Austin entfernt. Die Karte wurde auf Austin zentriert, aber dein Standort wird trotzdem angezeigt.");
+                    } else {
+                        // Auf den Benutzer zoomen
+                        map.setView([userLat, userLng], 13);
+                    }
+                }, function(error) {
+                    console.error("Fehler bei der Geolokalisierung:", error);
+                    // Fallback auf Austin-Zentrum
+                    map.setView([30.2672, -97.7431], 12);
+                });
+            } else {
+                console.log("Geolocation wird von deinem Browser nicht unterstützt");
+                // Fallback auf Austin-Zentrum
+                map.setView([30.2672, -97.7431], 12);
+            }
+            
+            // Funktion zur Berechnung der Entfernung zwischen zwei Koordinaten in km (Haversine-Formel)
+            function getDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Erdradius in km
+                const dLat = deg2rad(lat2 - lat1);
+                const dLon = deg2rad(lon2 - lon1);
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2); 
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+                const distance = R * c; // Entfernung in km
+                return distance;
+            }
+            
+            function deg2rad(deg) {
+                return deg * (Math.PI/180);
+            }
+        }
+    </script>
+</body>
+</html>
+
+</antArtifact>
